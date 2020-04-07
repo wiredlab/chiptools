@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 # Dan White <dan@whiteaudio.com>
 
@@ -14,8 +14,20 @@ try:
 except ImportError:
     pass
 
+
+def info(s):
+    print('INFO:', s, file=sys.stderr)
+
+def error(s):
+    print('ERROR:', s, file=sys.stderr)
+    sys.exit(1)
+
+def warn(s):
+    print('WARNING:', s, file=sys.stderr)
+
+
 def usage():
-    print >>sys.stderr, '''
+    error('''
 Usage: vwf2pwl.py digitalinputs.vwf
 
 vwf file format:
@@ -48,20 +60,9 @@ offset of clockdelay.  Hence, set "clockdelay=" to the maximum setup time of
 your registers and the data on each line will be clocked in at the right time.
 Parameter "clockrisefall=" is optional to separately specify the clock rise/
 fall time if it is different from the data lines rise/fall.
-'''
+''')
 
 
-def info(s):
-    print 'INFO:', s
-
-
-def error(s):
-    print 'ERROR:', s
-    sys.exit(1)
-
-
-def warn(s):
-    print 'WARNING:', s
 
 
 def output(s):
@@ -131,7 +132,7 @@ if len(sys.argv) < 2:
 vwf = sys.argv[1]
 if not vwf.endswith('.vwf'):
     usage()
-    print "Error: File must have a .vwf extension"
+    print("Error: File must have a .vwf extension", file=sys.stderr)
     sys.exit(1)
 
 pwl = vwf.replace('.vwf', '.pwl')
@@ -146,13 +147,16 @@ fpwl = open(pwl, 'w')
 requiredParams = ('risefall', 'bittime', 'bitlow', 'bithigh')
 params = {'clockdelay':None, 'clockrisefall':None}
 
+lineno = 0
 line = fvwf.readline()
+lineno += 1
 while '=' in line:
     name, value = line.split('=')
     name = name.strip()
     value = value.strip()
     params[name] = value
     line = fvwf.readline()
+    lineno += 1
 
 #check
 for p in requiredParams:
@@ -160,7 +164,7 @@ for p in requiredParams:
         error("%s is not specified, aborting." % p)
 
 info('Parameters:')
-for p,v in params.iteritems():
+for p,v in params.items():
     info('  %s = %s' % (p, v))
 
 if params['clockdelay']:
@@ -175,10 +179,10 @@ data = {}
 for i in inputs:
     data[i] = []
 
-for line in fvwf:
+for n, line in enumerate(fvwf, start=lineno+1):
     vector = line.strip()
     if len(vector) != len(inputs):
-        error("Must have same # characters as column labels: %s" % line.strip())
+        error("line %i: Must have same # characters as column labels: %s" % (n, line.strip()))
 
     i = 0
     for bit in vector:
