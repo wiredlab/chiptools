@@ -37,16 +37,18 @@ csrf.CSRFProtect(app)
 
 DELETE_TEMP_FILES = True or 'DELETE_TEMP_FILES' in os.environ
 
-
-
-
 appname = __name__
+
+# placeholder
+def vwf2pwl(infile):
+    return infile
 
 
 
 @app.errorhandler(csrf.CSRFError)
 def csrf_error(e):
     return e.description, 400
+
 
 @app.route('/')
 def root():
@@ -57,36 +59,55 @@ def root():
 def pwl():
     if request.method == 'POST':
         f = request.files.get('file')
-        vwf = os.path.join(app.config['UPLOADED_PATH'], secure_filename(f.filename))
-        f.save(vwf)
-
-        session['vwf'] = (vwf, f.filename)
-        session['lastlocation'] = 'pwl POST'
+        filepath = os.path.join(app.config['UPLOADED_PATH'], secure_filename(f.filename))
+        f.save(filepath)
+        session['upload'] = (filepath, f.filename)
+        session['app'] = 'pwl'
         response = 'ok'
     else:
-        if 'vwf' in session:
-            response = ''
-            session.pop('vwf', None)
-        else:
-            response = render_template('pwl.html')
+        if 'upload' in session:
+            #cleanup stale session
+            session.pop('upload', None)
+            session.pop('app', None)
+
+        response = render_template('pwl.html')
     return response
 
 
 @app.route('/uploaded')
 def uploaded():
-    if session.get('vwf') and session.get('lastlocation', None) == 'pwl POST':
-        (vwf, vwfname) = session['vwf']
-        pwl = vwf
-        pwlname = vwfname
+    referrer = session.pop('app', None)
+    (inpath, inname) = session.pop('upload', (None, None))
 
-        doc = make_response(open(pwl, 'r').read())
-        doc.headers['Content-Disposition'] = "attachment; filename=%s" % pwlname
-        doc.mimetype = 'text/plain'
-        response = doc
-        session.pop('lastlocaton', None)
-        session.pop('vwf', None)
-        os.remove(vwf)
-    else:
-        response = redirect(url_for('pwl'))
+    missing_context = ((referrer is None), (inpath is None), (inname is None))
+
+    if all(missing_context):
+        # not sure how we got here
+        return redirect(url_for('/'))
+    elif any(missing_context):
+        # anything missing is an application error
+        raise TypeError(f'Incomplete session referrer: {referrer}, upload: ({inpath}, {inname})')
+
+    # process the file according to the app
+    try:
+        if referrer == 'pwl':
+            # render from vwf to pwl file
+            outpath = vwf2pwl(inpath)
+            # TODO: better rename detection
+            outname = inpath.replace('.vwf', '.pwl')
+        else:
+            raise TypeError(f'Unknown referrer: {referrer}')
+    except:
+        if DELETE_TEMP_FILES:
+            os.remove(inpath)
+
+    doc = make_response(open(outpath, 'r').read())
+    doc.headers['Content-Disposition'] = "attachment; filename=%s" % outname
+    doc.mimetype = 'text/plain'
+    response = doc
+
+    if DELETE_TEMP_FILES:
+        os.remove(outpath)
+
     return response
 
