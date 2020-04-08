@@ -94,7 +94,7 @@ def uploaded():
             # render from vwf to pwl file
             outpath = vwf2pwl(inpath)
             # TODO: better rename detection
-            outname = inpath.replace('.vwf', '.pwl')
+            outname = inname.replace('.vwf', '.pwl')
         else:
             raise TypeError(f'Unknown referrer: {referrer}')
     except:
