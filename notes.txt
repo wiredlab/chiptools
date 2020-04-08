@@ -1,0 +1,11 @@
+Scratch notes for random issues in development
+==============================================
+
+
+2020-04-07 16:57:39
+----------------------------------------
+
+https://medium.com/@dustindavignon/upload-multiple-images-with-python-flask-and-flask-dropzone-d5b821829b1d
+
+http://hundredminutehack.blogspot.com/2017/03/drag-and-drop-files-with-html5-and-flask.html
+

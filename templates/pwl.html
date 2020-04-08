@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+    <title>Generate a PWL file for SPICE</title>
+<head>
+<style>
+.errors { color: red; }
+</style>
+{{ dropzone.load_css() }}
+</head>
+
+<body>
+
+<h1>Generate a PWL file for SPICE</h1>
+
+<h2>Instructions</h2>
+
+<p>
+This form accepts a CSV file exported from the Blackboard gradebook.
+It uses only the "<b>First Name</b>, "<b>Last Name</b>", and "<b>Student ID</b>" columns from that export.
+Edit the CSV file as desired to use preferred names, etc.
+
+<p>Get to the download form by:
+Grade Center &rarr; Full Grade Center &rarr; Work Offline &rarr; Download.
+
+<p>Select the following options:
+
+<ul>
+    <li>User Information Only</li>
+    <li>Delimiter Type: Comma</li>
+    <li>Include Hidden Information: Yes  (to ensure "Student ID" is included)</li>
+</ul>
+
+<p>Errors or comments?  Contact <a href="mailto:dan.white@valpo.edu?subject=chiptools/pwl">Dan White</a>.
+
+<p>
+The software which runs this site is available at <a href="https://github.com/etihwnad/valpo-photo-roster">https://github.com/etihwnad/valpo-photo-roster</a>.
+<p>
+<hr>
+
+
+<!--{{ dropzone.create(action='pwl') }} -->
+{{ dropzone.create('pwl') }}
+
+
+</body>
+
+{{ dropzone.load_js() }}
+{{ dropzone.config() }}
+</html>
