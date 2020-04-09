@@ -7,7 +7,8 @@ import sys
 # change to the location of this file
 sys.path.insert(0, '/var/www/apps/chiptools')
 
-venv_activate = './venv/bin/activate_this.py'
-execfile(venv_activate, dict(__file__=venv_activate))
+activate_this = './venv/bin/activate_this.py'
+with open(activate_this) as f:
+    exec(f.read(), dict(__file__=activate_this))
 
 from chiptools import app as application
