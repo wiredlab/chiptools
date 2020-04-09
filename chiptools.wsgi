@@ -1,3 +1,4 @@
+import os
 import sys
 
 # Change these values for your environment
@@ -5,9 +6,10 @@ import sys
 # UPDATE THE FILE PERMISSIONS ACCORDINGLY
 
 # change to the location of this file
-sys.path.insert(0, '/var/www/apps/chiptools')
+this_dir = '/var/www/apps/chiptools'
+sys.path.insert(0, this_dir)
 
-activate_this = './venv/bin/activate_this.py'
+activate_this = os.path.join(this_dir, 'venv/bin/activate_this.py')
 with open(activate_this) as f:
     exec(f.read(), dict(__file__=activate_this))
 
