@@ -1,4 +1,6 @@
 
+
+from datetime import datetime, timezone
 import os
 from shutil import rmtree
 from tempfile import mkdtemp
@@ -15,6 +17,8 @@ from werkzeug.utils import secure_filename
 
 from flask_dropzone import Dropzone
 
+from vwf2pwl import vwf2pwl
+
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 
@@ -23,7 +27,8 @@ app = Flask(__name__)
 dropzone = Dropzone(app)
 
 app.config.update(
-    UPLOADED_PATH=os.path.join(basedir, 'uploads'),
+    UPLOADED_PATH = os.path.join(basedir, 'uploads'),
+    DELETE_TEMP_FILES = False,
     # Flask-Dropzone config:
     DROPZONE_ENABLE_CSRF = True,
     DROPZONE_ALLOWED_FILE_CUSTOM = True,
@@ -35,13 +40,8 @@ app.config.update(
 app.secret_key = 'chiptoolskey'
 csrf.CSRFProtect(app)
 
-DELETE_TEMP_FILES = True or 'DELETE_TEMP_FILES' in os.environ
 
 appname = __name__
-
-# placeholder
-def vwf2pwl(infile):
-    return infile
 
 
 
@@ -59,11 +59,14 @@ def root():
 def pwl():
     if request.method == 'POST':
         f = request.files.get('file')
-        filepath = os.path.join(app.config['UPLOADED_PATH'], secure_filename(f.filename))
+        prefix = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H%M%S.%f')
+        savename = prefix + '_' + secure_filename(f.filename)
+        filepath = os.path.join(app.config['UPLOADED_PATH'], savename)
         f.save(filepath)
         session['upload'] = (filepath, f.filename)
         session['app'] = 'pwl'
         response = 'ok'
+        print(f'Upload: {savename}')
     else:
         if 'upload' in session:
             #cleanup stale session
@@ -83,7 +86,7 @@ def uploaded():
 
     if all(missing_context):
         # not sure how we got here
-        return redirect(url_for('/'))
+        return redirect(url_for('root'))
     elif any(missing_context):
         # anything missing is an application error
         raise TypeError(f'Incomplete session referrer: {referrer}, upload: ({inpath}, {inname})')
@@ -92,21 +95,20 @@ def uploaded():
     try:
         if referrer == 'pwl':
             # render from vwf to pwl file
+            outname = inname.replace('.vwf', '.pwl')  # TODO: make better
             outpath = vwf2pwl(inpath)
-            # TODO: better rename detection
-            outname = inname.replace('.vwf', '.pwl')
         else:
             raise TypeError(f'Unknown referrer: {referrer}')
     except:
-        if DELETE_TEMP_FILES:
-            os.remove(inpath)
+        raise
 
     doc = make_response(open(outpath, 'r').read())
     doc.headers['Content-Disposition'] = "attachment; filename=%s" % outname
     doc.mimetype = 'text/plain'
     response = doc
 
-    if DELETE_TEMP_FILES:
+    if app.config['DELETE_TEMP_FILES']:
+        os.remove(inpath)
         os.remove(outpath)
 
     return response
