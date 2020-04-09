@@ -2,9 +2,10 @@
 
 # Dan White <dan@whiteaudio.com>
 
+import fileinput
 import os
-import sys
 import re
+import sys
 
 from decimal import Decimal
 
@@ -65,18 +66,14 @@ fall time if it is different from the data lines rise/fall.
 
 
 
-def output(s):
-    fpwl.write(s + '\n')
-
-
-def mkvwf(d):
+def mkpwl(d, bitlow, bithigh, risefall, bittime, outfile):
     t = Decimal('0.0')
 
     #first bit interval starts at t=0, start from this value
     lastbit = d[0]
     bitv = Decimal(lastbit) * (bithigh - bitlow) + bitlow
     s = '+ 0 %s' % str(bitv)
-    output(s)
+    outfile.write(s + '\n')
 
     trf = risefall
     tb = bittime - risefall
@@ -88,9 +85,9 @@ def mkvwf(d):
             tf = ti + tb
             lastbitv = Decimal(lastbit) * (bithigh - bitlow) + bitlow
             bitv = Decimal(bit) * (bithigh - bitlow) + bitlow
-            output('+ %s %s' % (str(t), str(lastbitv)))
-            output('+ %s %s' % (str(ti), str(bitv)))
-            #output('+ %s %s' % (str(tf), str(bitv)))
+            outfile.write('+ %s %s' % (str(t), str(lastbitv)) + '\n')
+            outfile.write('+ %s %s' % (str(ti), str(bitv)) + '\n')
+            #outfile.write('+ %s %s' % (str(tf), str(bitv)) + '\n')
 
         t += trf + tb
         lastbit = bit
@@ -122,113 +119,115 @@ def unit(s):
         error("Bad unit: %s" % s)
 
 
+def read_params(fvwf):
+    """Returns (params, line) where line is the first non-(parameter, blank, or
+    comment) line."""
+    requiredParams = ('risefall', 'bittime', 'bitlow', 'bithigh')
+    params = {'clockdelay':None, 'clockrisefall':None}
 
-
-
-if len(sys.argv) < 2:
-    usage()
-    sys.exit(1)
-
-vwf = sys.argv[1]
-if not vwf.endswith('.vwf'):
-    usage()
-    print("Error: File must have a .vwf extension", file=sys.stderr)
-    sys.exit(1)
-
-pwl = vwf.replace('.vwf', '.pwl')
-
-fvwf = open(vwf)
-fpwl = open(pwl, 'w')
-
-
-#read in the vwf definition file
-
-#get parameters
-requiredParams = ('risefall', 'bittime', 'bitlow', 'bithigh')
-params = {'clockdelay':None, 'clockrisefall':None}
-
-lineno = 0
-line = fvwf.readline()
-lineno += 1
-while '=' in line:
-    name, value = line.split('=')
-    name = name.strip()
-    value = value.strip()
-    params[name] = value
     line = fvwf.readline()
-    lineno += 1
+    line = line.split('#')[0]
+    line = line.strip()
+    while '=' in line or line == '':
+        name, value = line.split('=')
+        name = name.strip()
+        value = value.strip()
+        params[name] = value
 
-#check
-for p in requiredParams:
-    if p not in params:
-        error("%s is not specified, aborting." % p)
+        line = fvwf.readline()
+        line = line.split('#')[0]
+        line = line.strip()
 
-info('Parameters:')
-for p,v in params.items():
-    info('  %s = %s' % (p, v))
+    # validate
+    for p in requiredParams:
+        if p not in params:
+            raise SyntaxError(f'Required parameter missing: {p}')
 
-if params['clockdelay']:
-    info("Adding a clock at 'clock' node.")
+    info('Parameters:')
+    for p,v in params.items():
+        info('  %s = %s' % (p, v))
 
-#get column labels
-inputs = [c.strip() for c in line.strip().split()]
-info("Columns: %s" % inputs)
+    if params['clockdelay']:
+        info("Adding a clock at 'clock' node.")
 
-#read in data
-data = {}
-for i in inputs:
-    data[i] = []
-
-for n, line in enumerate(fvwf, start=lineno+1):
-    vector = line.strip()
-    if len(vector) != len(inputs):
-        error("line %i: Must have same # characters as column labels: %s" % (n, line.strip()))
-
-    i = 0
-    for bit in vector:
-        data[inputs[i]].append(bit)
-        i += 1
+    return (params, line)
 
 
+def read_vector(line, nbits):
+    """Return an iterable with bits in the vector."""
+    bits = line.strip()
+    if len(bits) != nbits:
+        raise SyntaxError(f'Wrong number of bits: {line} -> {bits}')
+    return line.strip()
 
-#get the numbers
-risefall = unit(params['risefall'])
-bittime = unit(params['bittime'])
-bitlow = unit(params['bitlow'])
-bithigh = unit(params['bithigh'])
 
-#output clock definition if specified
-if params['clockdelay']:
-    #calculate clock high time
-    if params['clockrisefall']:
-        clockrisefall = unit(params['clockrisefall'])
-    else:
-        clockrisefall = risefall
+def vwf2pwl(vwf, pwl=None):
+    if not vwf.endswith('.vwf'):
+        raise SyntaxError(f'Input filename must end with .vwf: {vwf}')
 
-    clockhigh = Decimal('0.5') * (bittime - clockrisefall)
-    clockperiod = bittime
+    if pwl is None:
+        pwl = vwf.replace('.vwf', '.pwl')
 
-    params['clockrisefall'] = str(clockrisefall)
-    params['clockhigh'] = str(clockhigh)
-    params['clockperiod'] = str(clockperiod)
+    with fileinput.input(files=(vwf,)) as fvwf, open(pwl, 'w') as fpwl:
+        #read in the vwf definition file
+        (params, line) = read_params(fvwf)
 
-    clk = 'Vclock clock 0 pulse(%(bitlow)s %(bithigh)s %(clockdelay)s %(clockrisefall)s %(clockrisefall)s %(clockhigh)s %(clockperiod)s)' % params
-    info(clk)
-    output(clk)
-    output('')
+        #get column labels
+        inputs = [c.strip() for c in line.strip().split()]
+        ninputs = len(inputs)
+        info("Columns: %s" % inputs)
 
-#output each input source
-for name in inputs:
-    d = data[name]
+        #read in data
+        data = {}
+        for i in inputs:
+            data[i] = []
 
-    s = 'V%s %s 0 PWL' % (name, name)
-    info(s)
-    output(s)
+        for line in fvwf:
+            vector = read_vector(line, nbits=ninputs)
 
-    #first bit interval starts at t=0, start from this value
-    bit = d[0]
-    bitv = Decimal(bit) * (bithigh - bitlow) + bitlow
+            if len(vector) != len(inputs):
+                error(f'{fvwf.lineno()}: Must have same # characters as column labels: {line}')
 
-    mkvwf(d)
-    output('')
+            for i, bit in enumerate(vector):
+                data[inputs[i]].append(bit)
+
+        #get the numbers from parameters
+        risefall = unit(params['risefall'])
+        bittime = unit(params['bittime'])
+        bitlow = unit(params['bitlow'])
+        bithigh = unit(params['bithigh'])
+
+        #generate clock definition if specified
+        if params['clockdelay']:
+            #calculate clock high time
+            if params['clockrisefall']:
+                clockrisefall = unit(params['clockrisefall'])
+            else:
+                clockrisefall = risefall
+
+            clockhigh = Decimal('0.5') * (bittime - clockrisefall)
+            clockperiod = bittime
+
+            params['clockrisefall'] = str(clockrisefall)
+            params['clockhigh'] = str(clockhigh)
+            params['clockperiod'] = str(clockperiod)
+
+            clk = 'Vclock clock 0 pulse(%(bitlow)s %(bithigh)s %(clockdelay)s %(clockrisefall)s %(clockrisefall)s %(clockhigh)s %(clockperiod)s)' % params
+            fpwl.write(clk + '\n\n')
+
+        for name in inputs:
+            d = data[name]
+            s = f'V{name} {name} 0 PWL'
+            fpwl.write(s + '\n')
+
+            mkpwl(d, bitlow, bithigh, risefall, bittime, fpwl)
+            fpwl.write('\n')
+    return pwl
+
+
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        usage()
+        sys.exit(1)
+    vwf2pwl(sys.argv[1])
 
