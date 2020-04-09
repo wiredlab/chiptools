@@ -1,2 +1,5 @@
 __pycache__
 *.pyc
+
+# location where virtualenv is kept wuth direnv
+.direnv
