@@ -119,24 +119,33 @@ def unit(s):
         error("Bad unit: %s" % s)
 
 
+def read_line(f):
+    """Returns a line from a file, stripped of comments.  Will return the next
+    non-comment line."""
+    line = f.readline()
+    line = line.strip()
+    while line.startswith('#'):
+        line = f.readline()
+        line = line.strip()
+    line = line.split('#')[0]
+    line = line.strip()
+    return line
+
+
 def read_params(fvwf):
     """Returns (params, line) where line is the first non-(parameter, blank, or
     comment) line."""
     requiredParams = ('risefall', 'bittime', 'bitlow', 'bithigh')
     params = {'clockdelay':None, 'clockrisefall':None}
 
-    line = fvwf.readline()
-    line = line.split('#')[0]
-    line = line.strip()
+    line = read_line(fvwf)
     while '=' in line or line == '':
         name, value = line.split('=')
         name = name.strip()
         value = value.strip()
         params[name] = value
 
-        line = fvwf.readline()
-        line = line.split('#')[0]
-        line = line.strip()
+        line = read_line(fvwf)
 
     # validate
     for p in requiredParams:

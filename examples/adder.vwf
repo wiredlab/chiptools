@@ -1,4 +1,6 @@
-clockdelay=500p
+# adder example file
+  # with a weird comment
+clockdelay=500p   # clock starts after this time
 clockrisefall = 100p
 risefall=200p
 bittime=1n
