@@ -163,7 +163,11 @@ def read_params(fvwf):
 
 
 def read_vector(line, nbits):
-    """Return an iterable with bits in the vector."""
+    """Return an iterable with bits in the vector.
+    Strip comments starting with #."""
+    idx = line.find('#')
+    if idx >= 0:
+        line = line[:idx]
     bits = line.strip()
     if len(bits) != nbits:
         raise SyntaxError(f'Wrong number of bits: {line} -> {bits}')
